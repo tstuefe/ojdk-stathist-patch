@@ -10,6 +10,15 @@ as well as a new jcmd command:
 
 ```
 jcmd <pid> VM.stathist
+
+Syntax : VM.stathist [options]
+
+Options: (options must be specified using the <key> or <key>=<value> syntax)
+        scale : [optional] Memory usage in which to scale. Valid values are: k, m, g (fixed scale) or "dynamic" for a dynamically chosen scale. (STRING, dynamic)
+        no-legend : [optional] Omit legend. (BOOLEAN, false)
+        raw : [optional] Print raw values (debug only). (BOOLEAN, false)
+        csv : [optional] CSV format. (BOOLEAN, false)
+
 ```
 
 which will print out a statistical history like this one:
