@@ -104,6 +104,10 @@ Long Term Values:
 ...(snip)...
 ```
 
+Full example output [here](examples/stathist-volker.txt). 
+
+---
+
 This is a rolling history, spanning up to 10 days, of a number of key values. Key values range from JVM specifics like heap size, metaspace size, number of threads etc, to platform specifics like memory footprint, cpu load, io- and swapping activity etc.
 
 A periodic tasks collects those values, in - by default - 15 second intervals. They are then fed into a FIFO spanning 10 days. To save memory that FIFO is downsampled in two steps, so we have the last n hours in high resolution and the last n days in low resolution. All these parameters are configurable.
@@ -138,3 +142,8 @@ The patch itself is really simple and non-invasive, so it should be easy to main
 
 I will keep these patches up-to-date - one version for jdk8u, jdk11u and jdk/jdk tip  - as long as I think it makes sense.
 
+## Patch files
+
+- Patch based on jdk/jdk (currently jdk12): [stathist.patch](stathist.patch)
+- Patch based on jdk/jdk11u: [stathist-11.patch](stathist-11.patch)
+- Patch based on jdk/jdk8u: [stathist-8.patch](stathist-8.patch)
