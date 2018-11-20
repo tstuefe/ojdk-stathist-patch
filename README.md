@@ -108,43 +108,49 @@ Full example output [here](examples/stathist-volker.txt).
 
 ---
 
+In addition to jcmd, this history is printed as part of the hs-err file.
+
+---
+
 This is a rolling history, spanning up to 10 days, of a number of key values. Key values range from JVM specifics like heap size, metaspace size, number of threads etc, to platform specifics like memory footprint, cpu load, io- and swapping activity etc.
 
 A periodic tasks collects those values, in - by default - 15 second intervals. They are then fed into a FIFO spanning 10 days. To save memory that FIFO is downsampled in two steps, so we have the last n hours in high resolution and the last n days in low resolution. All these parameters are configurable.
 
-## Runtime costs?
-
-Very small. The feature uses up ~80KB memory. CPU load is neglectible (DaCapo benchmarks do not twitch.)
-
 ## Motivation
 
-This feature has been popular with our support over the years. Be it that the VM is starved for resources by the OS, that we have some slowly developing leak situation or a fast native leak etc: these values are a first and easy way to get a first stab at a situation, before we start more expensive analysis. Especially useful in post-mortem analysis, since the history gets printed as part of the hs-err report.
+This feature has been popular with our support over the years. Be it that the VM gets starved for resources by the OS, that we have some leak situation or just a plain error: these values are a first and easy way to estimate a situation, without having to start profiling or monitoring. Also useful in post-mortem analysis, since it gets printed into the hs-err file.
 
-The statistical history is cheap enough to be *always on*, by default, and getting forgotten. That way, if a problem occurs at a customer site, we immediately see developments spanning the last 10 days, without having to reproduce the issue.
+The statistical history is cheap enough to be *always on*, by default. That way, if a problem occurs at a customer site, we immediately see developments spanning the last 10 days, without having to reproduce the issue.
 
-It is also robust enough to be usable during error reporting without endangering the error reporting process or falsifying the picture.
+## Runtime costs?
+
+Small-ish. The feature uses up ~80KB memory. CPU load is not measurable (DaCapo benchmarks do not twitch.)
 
 ## Why not in the OpenJDK?
 
 This feature was has been proposed to the OpenJDK community for upstream inclusion, see http://mail.openjdk.java.net/pipermail/serviceability-dev/2018-November/025909.html .
 
-It has been rejected since its features intersect with JFR (Java Flight Recorder) and the JMC (Java Mission Control). Both JFR and JMC have been open sourced with JDK 11 and are since then freely available.
+It was rejected since it intersects with JFR (Java Flight Recorder) and the JMC (Java Mission Control):
 
-The consensus is that we do not want two backends collecting statisticals. We rather concentrate our efforts on one which does it really well.
+Both JFR and JMC have been open sourced with JDK 11 and since then are freely available. The consensus is that we do not want two backends collecting statisticals. We rather concentrate our efforts on one which does it really well, which going forward should be JFR.
 
-The author fully understand and support this decision. 
+And I fully support this decision. 
 
-However, this patch may still be valuable in the following corner cases:
+--
+
+However, this patch may still be valuable to some people:
 
 - you are a downstream OpenJDK maintainer and want to add this feature to older releases which have no JFR/JMC.
-- you are a downstream OpenJDK maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature is not and cannot be an alternative to JFR).
-- for experimenting and playing around.
+- you are a downstream OpenJDK maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature cannot compete with JFR).
+- for experimentation and playing around.
+
+which is why I put them here.
 
 The patch itself is really simple and non-invasive, so it should be easy to maintain downstream. Almost all code resides in new files, and the interface toward the VM is minimal.
 
 
 ## Patch files
 
-- Patch based on jdk/jdk (currently jdk12): [stathist.patch](stathist.patch)
+- Patch based on jdk/jdk tip (currently jdk12): [stathist.patch](stathist.patch)
 - Patch based on jdk/jdk11u: [stathist-11.patch](stathist-11.patch)
 - Patch based on jdk/jdk8u: [stathist-8.patch](stathist-8.patch)
