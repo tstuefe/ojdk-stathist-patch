@@ -114,13 +114,13 @@ A periodic tasks collects those values, in - by default - 15 second intervals. T
 
 ## Runtime costs?
 
-Almost nil. The feature uses up ~80KB memory. CPU load is neglectible (DaCapo benchmarks do not twitch.)
+Very small. The feature uses up ~80KB memory. CPU load is neglectible (DaCapo benchmarks do not twitch.)
 
 ## Motivation
 
-This feature has been really popular with support over the years. Be it that the VM is starved for resources by the OS, that we have some slowly developing leak situation or a fast native leak etc: these values are a first and easy way to get a first stab at a situation, before we start more expensive analysis.
+This feature has been popular with our support over the years. Be it that the VM is starved for resources by the OS, that we have some slowly developing leak situation or a fast native leak etc: these values are a first and easy way to get a first stab at a situation, before we start more expensive analysis. Especially useful in post-mortem analysis, since the history gets printed as part of the hs-err report.
 
-The explicit design goal of this history was to be very cheap - cheap enough to be *always on* and getting forgotten. It is, in our port, enabled by default. That way, if a problem occurs at a customer site, we immediately see developments spanning the last 10 days, without having to reproduce the issue.
+The statistical history is cheap enough to be *always on*, by default, and getting forgotten. That way, if a problem occurs at a customer site, we immediately see developments spanning the last 10 days, without having to reproduce the issue.
 
 It is also robust enough to be usable during error reporting without endangering the error reporting process or falsifying the picture.
 
@@ -128,19 +128,20 @@ It is also robust enough to be usable during error reporting without endangering
 
 This feature was has been proposed to the OpenJDK community for upstream inclusion, see http://mail.openjdk.java.net/pipermail/serviceability-dev/2018-November/025909.html .
 
-It has been rejected however since the features it provides are a domain of JFR (Java Flight Recorder) and the JMC (Java Mission Control). Both JFR and JMC have been open sourced with JDK 11 and are since then freely available - in former releases they had been paid features of the Oracle JDK.
+It has been rejected since its features intersect with JFR (Java Flight Recorder) and the JMC (Java Mission Control). Both JFR and JMC have been open sourced with JDK 11 and are since then freely available.
 
-The consensus is that we do not want two backend colslecting statistical data, but rather concentrate our efforts on one which does it really well. Should JFR lack capabilities this  Statistics History offers, we want to rather improve JFR instead of introducing a second solution.
+The consensus is that we do not want two backends collecting statisticals. We rather concentrate our efforts on one which does it really well.
 
-The author fully understand and support this decision. However, he still thinks this patch to be valuable for the following cases:
+The author fully understand and support this decision. 
+
+However, this patch may still be valuable in the following corner cases:
 
 - you are a downstream OpenJDK maintainer and want to add this feature to older releases which have no JFR/JMC.
-- Or maybe you want to exclude JFR/JMC from your build and need a cheap monitoring solution. Please note though that this feature is by no means an fully fledged alternative to JFR.
-- for research, fun and profit.
+- you are a downstream OpenJDK maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature is not and cannot be an alternative to JFR).
+- for experimenting and playing around.
 
 The patch itself is really simple and non-invasive, so it should be easy to maintain downstream. Almost all code resides in new files, and the interface toward the VM is minimal.
 
-I will keep these patches up-to-date - one version for jdk8u, jdk11u and jdk/jdk tip  - as long as I think it makes sense.
 
 ## Patch files
 
