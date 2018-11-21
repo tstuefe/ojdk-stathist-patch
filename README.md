@@ -116,10 +116,6 @@ This is a rolling history, spanning up to 10 days, of a number of key values. Ke
 
 A periodic tasks collects those values, in - by default - 15 second intervals. They are then fed into a FIFO spanning 10 days. To save memory that FIFO is downsampled in two steps, so we have the last n hours in high resolution and the last n days in low resolution. All these parameters are configurable.
 
-## Motivation
-
-This feature has been popular with our support over the years. Be it that the VM gets starved for resources by the OS, that we have some leak situation or just a plain error: these values are a first and easy way to estimate a situation, without having to start profiling or monitoring. Also useful in post-mortem analysis, since it gets printed into the hs-err file.
-
 The statistical history is cheap enough to be *always on*, by default. That way, if a problem occurs at a customer site, we immediately see developments spanning the last 10 days, without having to reproduce the issue.
 
 ## Runtime costs?
@@ -130,23 +126,20 @@ Small-ish. The feature uses up ~80KB memory. CPU load is not measurable (DaCapo 
 
 This feature was has been proposed to the OpenJDK community for upstream inclusion, see http://mail.openjdk.java.net/pipermail/serviceability-dev/2018-November/025909.html .
 
-It was rejected since it intersects with JFR (Java Flight Recorder) and the JMC (Java Mission Control):
+It was rejected since it conflicts with JFR (Java Flight Recorder) and the JMC (Java Mission Control):
 
 Both JFR and JMC have been open sourced with JDK 11 and since then are freely available. The consensus is that we do not want two backends collecting statisticals. We rather concentrate our efforts on one which does it really well, which going forward should be JFR.
 
-And I fully support this decision. 
+This decision makes sense and therefore this patch will not be brought upstream.
 
 --
 
 However, this patch may still be valuable to some people:
 
-- you are a downstream maintainer and want to add this feature to older releases which have no JFR/JMC.
-- you are a downstream maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature cannot compete with JFR).
+- you are a downstream maintainer and want to add this feature to older releases which have no JFR/JMC. Or, you need to exclude JFR/JMC from your build for whatever reason and want a cheap monitoring solution (please note though that this feature cannot compete with JFR).
 - for experimentation and playing around.
 
-which is why I put them here.
-
-The patch itself is really simple and non-invasive, so it should be easy to maintain downstream. Almost all code resides in new files, and the interface toward the VM is minimal.
+The patch itself is quite simple and non-invasive, so it can be maintained downstream. Almost all code resides in new files, and the interface toward the VM is slim.
 
 
 ## Patch files
