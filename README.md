@@ -140,8 +140,8 @@ And I fully support this decision.
 
 However, this patch may still be valuable to some people:
 
-- you are a downstream OpenJDK maintainer and want to add this feature to older releases which have no JFR/JMC.
-- you are a downstream OpenJDK maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature cannot compete with JFR).
+- you are a downstream maintainer and want to add this feature to older releases which have no JFR/JMC.
+- you are a downstream maintainer and want to exclude JFR/JMC from your build for whatever reason and need a cheap monitoring solution (please note though that this feature cannot compete with JFR).
 - for experimentation and playing around.
 
 which is why I put them here.
