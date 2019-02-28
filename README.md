@@ -1,3 +1,10 @@
+
+> Update 2019-02-28: the statistical history now lives in an own branch in the OpenJDK sandbox repository, branch "stuefe-statistical-history":
+> http://hg.openjdk.java.net/jdk/sandbox/shortlog/9653470b7294
+> 
+> This is the new master for this feature and I will stop updating these patch files.
+
+
 # Always-on Statistical History for the OpenJDK
 
 This is a patch against the OpenJDK which adds a statistical history to the OpenJDK. When added, there will be a new option:
