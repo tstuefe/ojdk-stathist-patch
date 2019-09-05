@@ -1,18 +1,79 @@
 # HG changeset patch
-# User stuefe
-# Date 1536299555 -7200
-#      Fri Sep 07 07:52:35 2018 +0200
-# Node ID 08dedf735951bc192c68be5821b7e4064827eac4
-# Parent  b7192ab3fdf5e6d0ac14d498a893efab4cb5582c
-[mq]: stathist
+# User Thomas Stuefe <thomas.stuefe@gmail.com>
+# Date 1551445166 -3600
+#      Fri Mar 01 13:59:26 2019 +0100
+# Node ID 11cb98441f2e31bfef3c95a212f78958ec851fdd
+# Parent  1262b3ddd7e4f010bf81f2564bf86e7e2c00467a
+From a5f47351c16725452ea8ff5cc26cdc33fa16d42d Mon Sep 17 00:00:00 2001
+[PATCH] SapMachine #241: Initial implementation of a low-cost, always
+From a5f47351c16725452ea8ff5cc26cdc33fa16d42d Mon Sep 17 00:00:00 2001
+ on statistical value history (JDK-8212618)
+---
+ src/hotspot/os/aix/stathist_aix.cpp                |   43 +
+ src/hotspot/os/bsd/stathist_bsd.cpp                |   43 +
+ src/hotspot/os/linux/stathist_linux.cpp            |  415 +++++++
+ src/hotspot/os/solaris/stathist_solaris.cpp        |   44 +
+ src/hotspot/os/windows/stathist_windows.cpp        |   89 ++
+ .../classfile/classLoaderDataGraph.inline.hpp      |   20 +
+ src/hotspot/share/runtime/globals.hpp              |   10 +
+ src/hotspot/share/runtime/thread.cpp               |   11 +
+ src/hotspot/share/services/diagnosticCommand.cpp   |    4 +
+ src/hotspot/share/services/stathist.cpp            | 1192 ++++++++++++++++++++
+ src/hotspot/share/services/stathist.hpp            |   67 ++
+ src/hotspot/share/services/stathistDCmd.cpp        |   95 ++
+ src/hotspot/share/services/stathistDCmd.hpp        |   65 ++
+ src/hotspot/share/services/stathist_internals.hpp  |  181 +++
+ src/hotspot/share/utilities/vmError.cpp            |   16 +
+ test/hotspot/jtreg/TEST.groups                     |    8 +
+ .../jtreg/serviceability/dcmd/vm/StatHistTest.java |   59 +
+ 17 files changed, 2362 insertions(+)
+ create mode 100644 src/hotspot/os/aix/stathist_aix.cpp
+ create mode 100644 src/hotspot/os/bsd/stathist_bsd.cpp
+ create mode 100644 src/hotspot/os/linux/stathist_linux.cpp
+ create mode 100644 src/hotspot/os/solaris/stathist_solaris.cpp
+ create mode 100644 src/hotspot/os/windows/stathist_windows.cpp
+ create mode 100644 src/hotspot/share/services/stathist.cpp
+ create mode 100644 src/hotspot/share/services/stathist.hpp
+ create mode 100644 src/hotspot/share/services/stathistDCmd.cpp
+ create mode 100644 src/hotspot/share/services/stathistDCmd.hpp
+ create mode 100644 src/hotspot/share/services/stathist_internals.hpp
+ create mode 100644 test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java
+* * *
+[PATCH] SapMachine #321: Minor fixes for statistical history
+From 641c0b96a5b9408bab1f3d1edcdae09e9790ae7a Mon Sep 17 00:00:00 2001
+- possible misprint for CPU values in long term table due to overflow
+- possible issues when printing the statistics table with code printing
+  in parallel due to temp. change of print locale
+- Fix issue which caused RSS details not to be shown even if available.
+---
+ src/hotspot/os/linux/stathist_linux.cpp | 19 ++++++++-----------
+ src/hotspot/share/services/stathist.cpp | 18 ------------------
+ 2 files changed, 8 insertions(+), 29 deletions(-)
+* * *
+[PATCH] Rename external representation of Statistical History (#421)
+From 7fc8c42184d7279a145f81146a12ce879ecd2ca2 Mon Sep 17 00:00:00 2001
+Rename "Statistical History" to "Vitals" with a minimum of fuss:
 
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/aix/stathist_aix.cpp
+rename command: VM.stathist -> VM.vitals
+rename switches: "EnableStatHist" -> "EnableVitals" etc.
+fixes #420
+---
+ src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp |  8 ++++----
+ src/hotspot/share/runtime/globals.hpp                       | 13 +++++++------
+ src/hotspot/share/runtime/thread.cpp                        |  2 +-
+ src/hotspot/share/services/stathist.cpp                     | 10 +++++-----
+ src/hotspot/share/services/stathistDCmd.hpp                 |  4 ++--
+ src/hotspot/share/utilities/vmError.cpp                     |  4 ++--
+ test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java |  4 ++--
+ 7 files changed, 23 insertions(+), 22 deletions(-)
+
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/os/aix/stathist_aix.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/os/aix/stathist_aix.cpp	Fri Sep 07 07:52:35 2018 +0200
++++ b/src/hotspot/os/aix/stathist_aix.cpp	Fri Mar 01 13:59:26 2019 +0100
 @@ -0,0 +1,43 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -53,13 +114,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/aix/stathist_aix.cpp
 +}
 +
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/bsd/stathist_bsd.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/os/bsd/stathist_bsd.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/os/bsd/stathist_bsd.cpp	Fri Sep 07 07:52:35 2018 +0200
++++ b/src/hotspot/os/bsd/stathist_bsd.cpp	Fri Mar 01 13:59:26 2019 +0100
 @@ -0,0 +1,43 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -100,13 +161,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/bsd/stathist_bsd.cpp
 +}
 +
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/os/linux/stathist_linux.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/os/linux/stathist_linux.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,394 @@
++++ b/src/hotspot/os/linux/stathist_linux.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,412 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -131,7 +192,6 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 + */
 +
 +#include "precompiled.hpp"
-+
 +#include "runtime/os.hpp"
 +#include "services/stathist_internals.hpp"
 +#include "utilities/debug.hpp"
@@ -177,11 +237,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +  const char* text() const { return _buf; }
 +
 +  const char* get_prefixed_line(const char* prefix) const {
-+    const char* p = ::strstr(_buf, prefix);
-+    if (p != NULL) {
-+      return p;
-+    }
-+    return NULL;
++    return ::strstr(_buf, prefix);
 +  }
 +
 +  value_t parsed_prefixed_value(const char* prefix, size_t scale = 1) const {
@@ -190,8 +246,9 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +    if (s != NULL) {
 +      errno = 0;
 +      const char* p = s + ::strlen(prefix);
-+      value = (value_t)::strtoll(p, NULL, 10);
-+      if (value == 0 && errno != 0) {
++      char* endptr = NULL;
++      value = (value_t)::strtoll(p, &endptr, 10);
++      if (p == endptr || errno != 0) {
 +        value = INVALID_VALUE;
 +      } else {
 +        value *= scale;
@@ -269,13 +326,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +        const uint64_t delta_ms = value_ms - last_value_ms;
 +
 +        // Calculate the number of wallclock milliseconds for the delta interval...
-+        const int age_ms = last_value_age * 1000;
++        const uint64_t age_ms = last_value_age * 1000;
 +
 +        // times number of available cores.
-+        const int total_cpu_time_ms = age_ms * _num_cores;
++        const uint64_t total_cpu_time_ms = age_ms * _num_cores;
 +
 +        // Put the spent cpu time in reference to the total available cpu time.
-+        const float percentage = (100.0f * delta_ms) / total_cpu_time_ms;
++        const double percentage = (100.0f * delta_ms) / total_cpu_time_ms;
 +
 +        char buf[32];
 +        l = jio_snprintf(buf, sizeof(buf), "%.0f", percentage);
@@ -298,6 +355,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +};
 +
 +//static Column* g_col_system_memtotal = NULL;
++static Column* g_col_system_memfree = NULL;
 +static Column* g_col_system_memavail = NULL;
 +static Column* g_col_system_swap = NULL;
 +
@@ -335,7 +393,20 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +  // Order matters!
 +//  g_col_system_memtotal = new MemorySizeColumn("system", NULL, "total", "Total physical memory.");
 +
-+  g_col_system_memavail = new MemorySizeColumn("system", NULL, "avail", "Memory available without swapping");
++  // Since free and avail are kind of redundant, only display free if avail is not available (very old kernels)
++  bool have_avail = false;
++  {
++    ProcFile bf;
++    if (bf.read("/proc/meminfo")) {
++      have_avail = (bf.parsed_prefixed_value("MemAvailable:", 1) != INVALID_VALUE);
++    }
++  }
++
++  if (have_avail) {
++    g_col_system_memavail = new MemorySizeColumn("system", NULL, "avail", "Memory available without swapping (>=3.14)");
++  } else {
++    g_col_system_memfree = new MemorySizeColumn("system", NULL, "free", "Unused memory");
++  }
 +
 +  g_col_system_swap = new MemorySizeColumn("system", NULL, "swap", "Swap space used");
 +
@@ -355,16 +426,22 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +
 +  g_col_process_virt = new MemorySizeColumn("process", NULL, "virt", "Virtual size");
 +
-+  g_col_process_rss = new MemorySizeColumn("process", "rss", "all", "Resident set size, total");
-+
-+  // Linux 4.5 ++
-+  g_col_process_rssanon = new MemorySizeColumn("process", "rss", "anon", "Resident set size, anonymous memory");
-+
-+  // Linux 4.5 ++
-+  g_col_process_rssfile = new MemorySizeColumn("process", "rss", "file", "Resident set size, file mappings");
-+
-+  // Linux 4.5 ++
-+  g_col_process_rssshmem = new MemorySizeColumn("process", "rss", "shm", "Resident set size, shared memory");
++  bool have_rss_detail_info = false;
++  {
++    ProcFile bf;
++    if (bf.read("/proc/self/status")) {
++      have_rss_detail_info = bf.parsed_prefixed_value("RssAnon:", 1) != INVALID_VALUE;
++    }
++  }
++  if (have_rss_detail_info) {
++    // Linux 4.5 ++
++    g_col_process_rss = new MemorySizeColumn("process", "rss", "all", "Resident set size, total");
++    g_col_process_rssanon = new MemorySizeColumn("process", "rss", "anon", "Resident set size, anonymous memory (>=4.5)");
++    g_col_process_rssfile = new MemorySizeColumn("process", "rss", "file", "Resident set size, file mappings (>=4.5)");
++    g_col_process_rssshmem = new MemorySizeColumn("process", "rss", "shm", "Resident set size, shared memory (>=4.5)");
++  } else {
++    g_col_process_rss = new MemorySizeColumn("process", NULL, "rss", "Resident set size, total");
++  }
 +
 +  g_col_process_swapped_out = new MemorySizeColumn("process", NULL, "swdo", "Memory swapped out");
 +
@@ -401,6 +478,9 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +
 +    // All values in /proc/meminfo are in KB
 +    const size_t scale = K;
++
++    set_value_in_record(g_col_system_memfree, record,
++        bf.parsed_prefixed_value("MemFree:", scale));
 +
 +    set_value_in_record(g_col_system_memavail, record,
 +        bf.parsed_prefixed_value("MemAvailable:", scale));
@@ -496,15 +576,14 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/linux/stathist_linux.cpp
 +
 +}
 +
-+
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/solaris/stathist_solaris.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/os/solaris/stathist_solaris.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/os/solaris/stathist_solaris.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,43 @@
++++ b/src/hotspot/os/solaris/stathist_solaris.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,44 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -535,6 +614,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/solaris/stathist_solaris.cpp
 +#include "utilities/debug.hpp"
 +#include "utilities/globalDefinitions.hpp"
 +
++
 +namespace StatisticsHistory {
 +
 +bool platform_columns_initialize() {
@@ -545,13 +625,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/solaris/stathist_solaris.cpp
 +}
 +
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/windows/stathist_windows.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/os/windows/stathist_windows.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/os/windows/stathist_windows.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,88 @@
++++ b/src/hotspot/os/windows/stathist_windows.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,89 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -583,6 +663,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/windows/stathist_windows.cpp
 +#include "utilities/globalDefinitions.hpp"
 +
 +#include <psapi.h>
++
 +
 +namespace StatisticsHistory {
 +
@@ -637,211 +718,142 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/os/windows/stathist_windows.cpp
 +}
 +
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/classfile/classLoaderDataGraph.cpp
---- a/src/hotspot/share/classfile/classLoaderDataGraph.cpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/classfile/classLoaderDataGraph.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -46,6 +46,9 @@
- volatile size_t ClassLoaderDataGraph::_num_array_classes = 0;
- volatile size_t ClassLoaderDataGraph::_num_instance_classes = 0;
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp
+--- a/src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp	Sat Aug 31 09:18:40 2019 -0700
++++ b/src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -28,7 +28,11 @@
+ #include "classfile/classLoaderDataGraph.hpp"
+ #include "classfile/javaClasses.hpp"
+ #include "oops/oop.inline.hpp"
++// SapMachine 2019-02-20 : stathist
++#include "runtime/globals.hpp"
+ #include "runtime/atomic.hpp"
++// SapMachine 2019-02-20 : stathist
++#include "services/stathist.hpp"
  
-+volatile size_t ClassLoaderDataGraph::_classes_load_counter = 0;
-+volatile size_t ClassLoaderDataGraph::_classes_unload_counter = 0;
-+
- void ClassLoaderDataGraph::clear_claimed_marks() {
-   for (ClassLoaderData* cld = _head; cld != NULL; cld = cld->next()) {
-     cld->clear_claim();
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/classfile/classLoaderDataGraph.hpp
---- a/src/hotspot/share/classfile/classLoaderDataGraph.hpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/classfile/classLoaderDataGraph.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -60,6 +60,9 @@
-   static volatile size_t  _num_instance_classes;
-   static volatile size_t  _num_array_classes;
+ inline ClassLoaderData *ClassLoaderDataGraph::find_or_create(Handle loader) {
+   guarantee(loader() != NULL && oopDesc::is_oop(loader()), "Loader must be oop");
+@@ -51,20 +55,36 @@
  
-+  static volatile size_t _classes_load_counter;
-+  static volatile size_t _classes_unload_counter;
-+
-   static ClassLoaderData* add_to_graph(Handle class_loader, bool is_unsafe_anonymous);
-   static ClassLoaderData* add(Handle class_loader, bool is_unsafe_anonymous);
- 
-@@ -145,6 +148,10 @@
-   static inline void inc_array_classes(size_t count);
-   static inline void dec_array_classes(size_t count);
- 
-+  static inline size_t classes_load_counter();
-+  static inline size_t classes_unload_counter();
-+
-+
- #ifndef PRODUCT
-   static bool contains_loader_data(ClassLoaderData* loader_data);
- #endif
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp
---- a/src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/classfile/classLoaderDataGraph.inline.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -49,22 +49,34 @@
-   return _num_array_classes;
- }
- 
-+size_t ClassLoaderDataGraph::classes_load_counter() {
-+  return _classes_load_counter;
-+}
-+
-+size_t ClassLoaderDataGraph::classes_unload_counter() {
-+  return _classes_unload_counter;
-+}
-+
  void ClassLoaderDataGraph::inc_instance_classes(size_t count) {
    Atomic::add(count, &_num_instance_classes);
-+  Atomic::add(count, &_classes_load_counter);
++  // SapMachine 2019-02-20 : stathist
++  if (EnableVitals) {
++    StatisticsHistory::counters::inc_classes_loaded(count);
++  }
  }
  
  void ClassLoaderDataGraph::dec_instance_classes(size_t count) {
    assert(count <= _num_instance_classes, "Sanity");
    Atomic::sub(count, &_num_instance_classes);
-+  Atomic::add(count, &_classes_unload_counter);
++  // SapMachine 2019-02-20 : stathist
++  if (EnableVitals) {
++    StatisticsHistory::counters::inc_classes_unloaded(count);
++  }
  }
  
  void ClassLoaderDataGraph::inc_array_classes(size_t count) {
    Atomic::add(count, &_num_array_classes);
-+  Atomic::add(count, &_classes_load_counter);
++  // SapMachine 2019-02-20 : stathist
++  if (EnableVitals) {
++    StatisticsHistory::counters::inc_classes_loaded(count);
++  }
  }
  
  void ClassLoaderDataGraph::dec_array_classes(size_t count) {
    assert(count <= _num_array_classes, "Sanity");
    Atomic::sub(count, &_num_array_classes);
-+  Atomic::add(count, &_classes_unload_counter);
++  // SapMachine 2019-02-20 : stathist
++  if (EnableVitals) {
++    StatisticsHistory::counters::inc_classes_unloaded(count);
++  }
  }
  
  bool ClassLoaderDataGraph::should_clean_metaspaces_and_reset() {
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/runtime/globals.hpp
---- a/src/hotspot/share/runtime/globals.hpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/runtime/globals.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -2601,7 +2601,14 @@
-           "Start flight recording with options"))                           \
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/runtime/globals.hpp
+--- a/src/hotspot/share/runtime/globals.hpp	Sat Aug 31 09:18:40 2019 -0700
++++ b/src/hotspot/share/runtime/globals.hpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -501,6 +501,17 @@
+   develop(bool, Verbose, false,                                             \
+           "Print additional debugging information from other modes")        \
                                                                              \
-   experimental(bool, UseFastUnorderedTimeStamps, false,                     \
--          "Use platform unstable time where supported for timestamps only")
-+          "Use platform unstable time where supported for timestamps only") \
++  /* SapMachine 2019-02-20 : stathist */                                    \
++  product(bool, EnableVitals, true,                                         \
++          "Enable sampling of vitals: memory, cpu utilization and various " \
++          "VM core statistics; display via jcmd \"VM.vitals\".")            \
 +                                                                            \
-+  product(bool, EnableStatHist, true,                                       \
-+          "Enable Statistics history")                                      \
++  product(uintx, VitalsSampleInterval, 0,                                   \
++          "Vitals sample rate interval (0=use default sample rate)")        \
 +                                                                            \
-+  develop(uintx, StatHistSampleInterval, 0,                                 \
-+          "Statistics history sample rate interval (0=default)")
-+
- 
- #define VM_FLAGS(develop,                                                   \
-                  develop_pd,                                                \
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/runtime/thread.cpp
---- a/src/hotspot/share/runtime/thread.cpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/runtime/thread.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -105,6 +105,7 @@
++  experimental(bool, VitalsLockFreeSampling, false,                         \
++          "When sampling vitals, omit any actions which require locking.")  \
++                                                                            \
+   develop(bool, PrintMiscellaneous, false,                                  \
+           "Print uncategorized debugging information (requires +Verbose)")  \
+                                                                             \
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/runtime/thread.cpp
+--- a/src/hotspot/share/runtime/thread.cpp	Sat Aug 31 09:18:40 2019 -0700
++++ b/src/hotspot/share/runtime/thread.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -107,6 +107,8 @@
  #include "services/attachListener.hpp"
  #include "services/management.hpp"
  #include "services/memTracker.hpp"
++// SapMachine 2019-02-20 : stathist
 +#include "services/stathist.hpp"
  #include "services/threadService.hpp"
  #include "utilities/align.hpp"
  #include "utilities/copy.hpp"
-@@ -215,6 +216,7 @@
- 
- 
- Thread::Thread() {
-+  _stack_size= 0;
-   // stack and get_thread
-   set_stack_base(NULL);
-   set_stack_size(0);
-@@ -3398,6 +3400,8 @@
- size_t      Threads::_threads_before_barrier_set = 0;
- #endif
- 
-+unsigned    Threads::_number_of_threads_created = 0;
-+
- static inline void *prefetch_and_load_ptr(void **addr, intx prefetch_interval) {
-   Prefetch::read((void*)addr, prefetch_interval);
-   return *addr;
-@@ -3923,6 +3927,10 @@
+@@ -3968,6 +3970,11 @@
    StatSampler::engage();
    if (CheckJNICalls)                  JniPeriodicChecker::engage();
  
-+  if (EnableStatHist) {
++  // SapMachine 2019-02-20 : stathist
++  if (EnableVitals) {
 +    StatisticsHistory::initialize();
 +  }
 +
    BiasedLocking::init();
  
  #if INCLUDE_RTM_OPT
-@@ -4355,6 +4363,7 @@
+@@ -4394,6 +4401,10 @@
    p->set_on_thread_list();
  
    _number_of_threads++;
-+  _number_of_threads_created ++;
++
++  // SapMachine 2019-02-20 : stathist
++  StatisticsHistory::counters::inc_threads_created(1);
++
    oop threadObj = p->threadObj();
    bool daemon = true;
    // Bootstrapping problem: threadObj can be null for initial
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/runtime/thread.hpp
---- a/src/hotspot/share/runtime/thread.hpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/runtime/thread.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -644,7 +644,9 @@
-   address stack_base() const           { assert(_stack_base != NULL,"Sanity check"); return _stack_base; }
-   void    set_stack_base(address base) { _stack_base = base; }
-   size_t  stack_size() const           { return _stack_size; }
-+
-   void    set_stack_size(size_t size)  { _stack_size = size; }
-+
-   address stack_end()  const           { return stack_base() - stack_size(); }
-   void    record_stack_base_and_size();
-   void    register_thread_stack_with_NMT() NOT_NMT_RETURN;
-@@ -2150,6 +2152,9 @@
-   static size_t      _threads_before_barrier_set;
- #endif
- 
-+  // Statistics
-+  static unsigned    _number_of_threads_created;
-+
-   static void initialize_java_lang_classes(JavaThread* main_thread, TRAPS);
-   static void initialize_jsr292_core_classes(TRAPS);
- 
-@@ -2252,6 +2257,8 @@
-   // Number of non-daemon threads on the active threads list
-   static int number_of_non_daemon_threads()      { return _number_of_non_daemon_threads; }
- 
-+  static unsigned number_of_threads_created()    { return _number_of_threads_created; }
-+
-   // Deoptimizes all frames tied to marked nmethods
-   static void deoptimized_wrt_marked_nmethods();
- };
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/diagnosticCommand.cpp
---- a/src/hotspot/share/services/diagnosticCommand.cpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/services/diagnosticCommand.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -44,6 +44,7 @@
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/diagnosticCommand.cpp
+--- a/src/hotspot/share/services/diagnosticCommand.cpp	Sat Aug 31 09:18:40 2019 -0700
++++ b/src/hotspot/share/services/diagnosticCommand.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -46,6 +46,8 @@
  #include "services/diagnosticFramework.hpp"
  #include "services/heapDumper.hpp"
  #include "services/management.hpp"
++// SapMachine 2019-02-20 : stathist
 +#include "services/stathistDCmd.hpp"
  #include "services/writeableFlags.hpp"
  #include "utilities/debug.hpp"
- #include "utilities/formatBuffer.hpp"
-@@ -84,6 +85,7 @@
+ #include "utilities/events.hpp"
+@@ -87,6 +89,8 @@
    DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<RunFinalizationDCmd>(full_export, true, false));
    DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<HeapInfoDCmd>(full_export, true, false));
    DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<FinalizerInfoDCmd>(full_export, true, false));
++  // SapMachine 2019-02-20 : stathist
 +  DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<StatisticsHistory::StatHistDCmd>(full_export, true, false));
  #if INCLUDE_SERVICES
    DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<HeapDumpDCmd>(DCmd_Source_Internal | DCmd_Source_AttachAPI, true, false));
    DCmdFactory::register_DCmdFactory(new DCmdFactoryImpl<ClassHistogramDCmd>(full_export, true, false));
-@@ -1054,3 +1056,5 @@
- int TouchedMethodsDCmd::num_arguments() {
-   return 0;
- }
-+
-+
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/stathist.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/share/services/stathist.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,1076 @@
++++ b/src/hotspot/share/services/stathist.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,1174 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -879,14 +891,48 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +#include "services/stathist_internals.hpp"
 +#include "utilities/debug.hpp"
 +#include "utilities/globalDefinitions.hpp"
-+#include "utilities/macros.hpp"
 +#include "utilities/ostream.hpp"
 +
 +
 +#include <locale.h>
 +#include <time.h>
 +
++
++// Define this switch to limit sampling to those values which can be obtained without locking.
++#undef NEVER_LOCK_WHEN_SAMPLING
++
 +namespace StatisticsHistory {
++
++namespace counters {
++
++// These are counters for the statistics history. Ideally, they would live
++// inside their thematical homes, e.g. thread.cpp or classLoaderDataGraph.cpp,
++// however since this is unlikely ever to be brought upstream we keep them separate
++// from central coding to ease maintenance.
++static volatile size_t g_classes_loaded = 0;
++static volatile size_t g_classes_unloaded = 0;
++static volatile size_t g_threads_created = 0;
++
++void inc_classes_loaded(size_t count) {
++  Atomic::add(count, &g_classes_loaded);
++}
++
++void inc_classes_unloaded(size_t count) {
++  Atomic::add(count, &g_classes_unloaded);
++}
++
++void inc_threads_created(size_t count) {
++  Atomic::add(count, &g_threads_created);
++}
++
++} // namespace counters
++
++// helper function for the missing outputStream::put(int c, int repeat)
++static void ostream_put_n(outputStream* st, int c, int repeat) {
++  for (int i = 0; i < repeat; i ++) {
++    st->put(c);
++  }
++}
 +
 +static size_t record_size_in_bytes() {
 +  const int num_columns = ColumnList::the_list()->num_columns();
@@ -901,11 +947,11 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +  if (extra_space > 0) {
 +    int left_space = extra_space / 2;
 +    int right_space = extra_space - left_space;
-+    st->put('-', left_space);
++    ostream_put_n(st, '-', left_space);
 +    st->print_raw(text);
-+    st->put('-', right_space);
++    ostream_put_n(st, '-', right_space);
 +  } else {
-+    st->put('-', width);
++    ostream_put_n(st, '-', width);
 +  }
 +}
 +
@@ -941,19 +987,6 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +    st->print("%*s", TIMESTAMP_LEN, buf);
 +  }
 +}
-+
-+// A little RAII class to temporarily change locale to "C"
-+class CLocaleMark {
-+  const char* _orig;
-+public:
-+  CLocaleMark() {
-+    _orig = ::setlocale(LC_NUMERIC, NULL);
-+    ::setlocale(LC_NUMERIC, "C");
-+  }
-+  ~CLocaleMark() {
-+    ::setlocale(LC_NUMERIC, _orig);
-+  }
-+};
 +
 +////// class ColumnList methods ////
 +
@@ -1014,7 +1047,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +static void print_category_line(outputStream* st, int widths[], const print_info_t* pi) {
 +
 +  assert(pi->cvs == false, "Not in cvs mode");
-+  st->put(' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
++  ostream_put_n(st, ' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
 +
 +  const Column* c = ColumnList::the_list()->first();
 +  assert(c != NULL, "no columns?");
@@ -1042,7 +1075,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +static void print_header_line(outputStream* st, int widths[], const print_info_t* pi) {
 +
 +  assert(pi->cvs == false, "Not in cvs mode");
-+  st->put(' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
++  ostream_put_n(st, ' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
 +
 +  const Column* c = ColumnList::the_list()->first();
 +  assert(c != NULL, "no columns?");
@@ -1058,7 +1091,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +          st->put(' '); // divider
 +        } else {
 +          // the last n columns had no header. Just fill with blanks.
-+          st->put(' ', width);
++          ostream_put_n(st, ' ', width);
 +        }
 +      }
 +      width = 0;
@@ -1078,7 +1111,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +  // Leave space for timestamp column
 +  if (pi->cvs == false) {
-+    st->put(' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
++    ostream_put_n(st, ' ', TIMESTAMP_LEN + TIMESTAMP_DIVIDER_LEN);
 +  } else {
 +    st->put(',');
 +  }
@@ -1225,7 +1258,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +  int needed = calc_print_size(value, last_value, last_value_age, pi);
 +  if (pi->cvs == false && min_width > needed) {
 +    // In ascii (non cvs) mode, pad to minimum width
-+    st->put(' ', min_width - needed);
++    ostream_put_n(st, ' ', min_width - needed);
 +  }
 +  do_print(st, value, last_value, last_value_age, pi);
 +}
@@ -1293,7 +1326,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +  }
 +
 +  if (pi->cvs == false) {
-+    st->put(' ', TIMESTAMP_DIVIDER_LEN);
++    ostream_put_n(st, ' ', TIMESTAMP_DIVIDER_LEN);
 +  } else {
 +    st->put(',');
 +  }
@@ -1496,9 +1529,6 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +  void print_table(outputStream* st, const print_info_t* pi, const record_t* values_now = NULL) const {
 +
-+    // print numbers with C locale to make parsing easier.
-+    CLocaleMark clm;
-+
 +    if (is_empty() && values_now == NULL) {
 +      st->print_cr("(no records)");
 +      return;
@@ -1592,8 +1622,8 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +      return false;
 +    }
 +
-+    const int short_term_interval = StatHistSampleInterval != 0 ?
-+        StatHistSampleInterval : short_term_interval_default;
++    const int short_term_interval = VitalsSampleInterval != 0 ?
++        VitalsSampleInterval : short_term_interval_default;
 +    return _the_tables->initialize(short_term_interval);
 +
 +  }
@@ -1628,7 +1658,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +RecordTables* RecordTables::_the_tables = NULL;
 +
-+static void sample_values(record_t* record) {
++static void sample_values(record_t* record, bool avoid_locking) {
 +
 +  // reset all values to be invalid.
 +  const ColumnList* clist = ColumnList::the_list();
@@ -1637,7 +1667,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +  }
 +
 +  // sample...
-+  sample_jvm_values(record);
++  sample_jvm_values(record, avoid_locking);
 +  sample_platform_values(record);
 +}
 +
@@ -1653,7 +1683,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +    ::time(&record->timestamp);
 +
-+    sample_values(record);
++    sample_values(record, VitalsLockFreeSampling);
 +
 +    // After sampling, finish record.
 +    record_table->finish_current_record();
@@ -1666,11 +1696,10 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +    : NamedThread()
 +    , _stop(false)
 +  {
-+    this->set_name("stathist sampler thread");
++    this->set_name("vitals sampler thread");
 +  }
 +
 +  virtual void run() {
-+    initialize_named_thread();
 +    record_stack_base_and_size();
 +    for (;;) {
 +      take_sample();
@@ -1705,8 +1734,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +static Column* g_col_heap_committed = NULL;
 +static Column* g_col_heap_used = NULL;
++
 +static Column* g_col_metaspace_committed = NULL;
 +static Column* g_col_metaspace_used = NULL;
++static Column* g_col_classspace_committed = NULL;
++static Column* g_col_classspace_used = NULL;
++static Column* g_col_metaspace_cap_until_gc = NULL;
++
 +static Column* g_col_codecache_committed = NULL;
 +
 +static Column* g_col_nmt_malloc = NULL;
@@ -1715,6 +1749,9 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +static Column* g_col_number_of_java_threads_non_demon = NULL;
 +static Column* g_col_size_thread_stacks = NULL;
 +static Column* g_col_number_of_java_threads_created = NULL;
++
++static Column* g_col_number_of_clds = NULL;
++static Column* g_col_number_of_anon_clds = NULL;
 +
 +static Column* g_col_number_of_classes = NULL;
 +static Column* g_col_number_of_class_loads = NULL;
@@ -1731,10 +1768,20 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +      "heap", "used", "Java Heap Size, used");
 +
 +  g_col_metaspace_committed = new MemorySizeColumn("jvm",
-+      "meta", "comm", "Meta Space Size, committed");  // Heap size
++      "meta", "comm", "Meta Space Size (class+nonclass), committed");
 +
 +  g_col_metaspace_used = new MemorySizeColumn("jvm",
-+      "meta", "used", "Meta Space Size, used");
++      "meta", "used", "Meta Space Size (class+nonclass), used");
++
++  if (Metaspace::using_class_space()) {
++    g_col_classspace_committed = new MemorySizeColumn("jvm",
++        "meta", "csc", "Class Space Size, committed");
++    g_col_classspace_used = new MemorySizeColumn("jvm",
++        "meta", "csu", "Class Space Size, used");
++  }
++
++  g_col_metaspace_cap_until_gc = new MemorySizeColumn("jvm",
++      "meta", "gctr", "GC threshold");
 +
 +  g_col_codecache_committed = new MemorySizeColumn("jvm",
 +      NULL, "code", "Code cache, committed");
@@ -1753,6 +1800,12 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +  g_col_size_thread_stacks = new MemorySizeColumn("jvm",
 +      "jthr", "st", "Total reserved size of java thread stacks");
++
++  g_col_number_of_clds = new PlainValueColumn("jvm",
++      "cldg", "num", "Classloader Data");
++
++  g_col_number_of_anon_clds = new PlainValueColumn("jvm",
++      "cldg", "anon", "Anonymous CLD");
 +
 +  g_col_number_of_classes = new PlainValueColumn("jvm",
 +      "cls", "num", "Classes (instance + array)");
@@ -1794,50 +1847,98 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +  // for BSD and Linux; on the other platforms, one runs a miniscule but real risk of triggering
 +  // the assert in Thread::stack_size().
 +  size_t l = 0;
-+  MutexLocker ml(Threads_lock);
 +  AddStackSizeThreadClosure tc;
-+  Threads::threads_do(&tc);
++  {
++    MutexLocker ml(Threads_lock);
++    Threads::threads_do(&tc);
++  }
 +  return tc.get();
 +#else
 +  return INVALID_VALUE;
 +#endif
 +}
 +
-+void sample_jvm_values(record_t* record) {
++// Count CLDs
++class CLDCounterClosure: public CLDClosure {
++public:
++  int _cnt;
++  int _anon_cnt;
++  CLDCounterClosure() : _cnt(0), _anon_cnt(0) {}
++  void do_cld(ClassLoaderData* cld) {
++    _cnt ++;
++    if (cld->is_unsafe_anonymous()) {
++      _anon_cnt ++;
++    }
++  }
++};
 +
-+  const CollectedHeap* const heap = Universe::heap();
-+  if (heap != NULL) {
-+    MutexLocker hl(Heap_lock);
-+    set_value_in_record(g_col_heap_committed, record, Universe::heap()->capacity());
-+    set_value_in_record(g_col_heap_used, record, Universe::heap()->used());
++void sample_jvm_values(record_t* record, bool avoid_locking) {
++
++  // Heap
++  if (!avoid_locking) {
++    size_t heap_cap = 0;
++    size_t heap_used = 0;
++    const CollectedHeap* const heap = Universe::heap();
++    if (heap != NULL) {
++      MutexLocker hl(Heap_lock);
++      heap_cap = Universe::heap()->capacity();
++      heap_used = Universe::heap()->used();
++    }
++    set_value_in_record(g_col_heap_committed, record, heap_cap);
++    set_value_in_record(g_col_heap_used, record, heap_used);
 +  }
 +
++  // Metaspace
 +  set_value_in_record(g_col_metaspace_committed, record, MetaspaceUtils::committed_bytes());
 +  set_value_in_record(g_col_metaspace_used, record, MetaspaceUtils::used_bytes());
 +
++  if (Metaspace::using_class_space()) {
++    set_value_in_record(g_col_classspace_committed, record, MetaspaceUtils::committed_bytes(Metaspace::ClassType));
++    set_value_in_record(g_col_classspace_used, record, MetaspaceUtils::used_bytes(Metaspace::ClassType));
++  }
++
++  set_value_in_record(g_col_metaspace_cap_until_gc, record, MetaspaceGC::capacity_until_GC());
++
++  // Code cache
 +  const size_t codecache_committed = CodeCache::capacity();
 +  set_value_in_record(g_col_codecache_committed, record, codecache_committed);
 +
-+  // query malloc'ed size from NMT
-+  if (MemTracker::tracking_level() != NMT_off) {
-+    MutexLocker locker(MemTracker::query_lock());
-+    const size_t v = MallocMemorySummary::as_snapshot()->total();
-+    set_value_in_record(g_col_nmt_malloc, record, v);
++  // NMT
++  if (!avoid_locking) {
++    size_t malloc_footprint = 0;
++    if (MemTracker::tracking_level() != NMT_off) {
++      MutexLocker locker(MemTracker::query_lock());
++      malloc_footprint = MallocMemorySummary::as_snapshot()->total();
++    }
++    set_value_in_record(g_col_nmt_malloc, record, malloc_footprint);
 +  }
 +
++  // Java threads
 +  set_value_in_record(g_col_number_of_java_threads, record, Threads::number_of_threads());
 +  set_value_in_record(g_col_number_of_java_threads_non_demon, record, Threads::number_of_non_daemon_threads());
-+  set_value_in_record(g_col_number_of_java_threads_created, record, Threads::number_of_threads_created());
-+  set_value_in_record(g_col_size_thread_stacks, record, accumulate_thread_stack_size());
++  set_value_in_record(g_col_number_of_java_threads_created, record, counters::g_threads_created);
 +
++  // Java thread stack size
++  if (!avoid_locking) {
++    set_value_in_record(g_col_size_thread_stacks, record, accumulate_thread_stack_size());
++  }
++
++  // CLDG
++  if (!avoid_locking) {
++    CLDCounterClosure cl;
++    {
++      MutexLocker lck(ClassLoaderDataGraph_lock);
++      ClassLoaderDataGraph::cld_do(&cl);
++    }
++    set_value_in_record(g_col_number_of_clds, record, cl._cnt);
++    set_value_in_record(g_col_number_of_anon_clds, record, cl._anon_cnt);
++  }
++
++  // Classes
 +  set_value_in_record(g_col_number_of_classes, record,
 +      ClassLoaderDataGraph::num_instance_classes() + ClassLoaderDataGraph::num_array_classes());
-+  set_value_in_record(g_col_number_of_class_loads, record,
-+      ClassLoaderDataGraph::classes_load_counter());
-+  set_value_in_record(g_col_number_of_class_unloads, record,
-+      ClassLoaderDataGraph::classes_unload_counter());
-+
-+
++  set_value_in_record(g_col_number_of_class_loads, record, counters::g_classes_loaded);
++  set_value_in_record(g_col_number_of_class_unloads, record, counters::g_classes_unloaded);
 +}
 +
 +bool initialize() {
@@ -1885,7 +1986,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +void print_report(outputStream* st, const print_info_t* pi) {
 +
-+  st->print("History:");
++  st->print("Vitals:");
 +
 +  if (ColumnList::the_list() == NULL) {
 +    st->print_cr(" (unavailable)");
@@ -1894,20 +1995,29 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +
 +  st->cr();
 +
++  static const print_info_t default_settings = {
++      false, // raw
++      false, // cvs
++      false, // omit_legend
++      true   // avoid_sampling
++  };
++
++  if (pi == NULL) {
++    pi = &default_settings;
++  }
++
 +  // Print legend at the top (omit if suppressed on command line, or in cvs mode).
 +  if (pi->no_legend == false && pi->cvs == false) {
 +    print_legend(st, pi);
 +    st->cr();
 +  }
 +
-+  CLocaleMark locale_mark; // Print all numbers with locale "C"
-+
 +  record_t* values_now = NULL;
-+  if (!pi->no_now_value) {
++  if (!pi->avoid_sampling) {
 +    // Sample the current values (not when reporting errors, since we do not want to risk secondary errors).
 +    values_now = g_record_now;
 +    values_now->timestamp = 0; // means "Now"
-+    sample_values(values_now);
++    sample_values(values_now, true);
 +  }
 +
 +  RecordTables::the_tables()->print_all(st, pi, values_now);
@@ -1915,13 +2025,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.cpp
 +}
 +
 +} // namespace StatisticsHistory
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.hpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/stathist.hpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/share/services/stathist.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,53 @@
++++ b/src/hotspot/share/services/stathist.hpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,67 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -1953,6 +2063,7 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.hpp
 +class outputStream;
 +
 +namespace StatisticsHistory {
++
 +  bool initialize();
 +  void cleanup();
 +
@@ -1961,24 +2072,37 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist.hpp
 +    bool cvs;
 +    // Omit printing a legend.
 +    bool no_legend;
-+    // Omit sampling and printing the "now" values
-+    bool no_now_value;
++    // Normally, when we print a report, we sample the current values too and print it atop of the table.
++    // We may want to avoid that, e.g. during error handling.
++    bool avoid_sampling;
 +
 +    size_t scale;
 +  };
 +
-+  // If no print info is given, we print with default settings
-+  void print_report(outputStream* st, const print_info_t* print_info);
++  // If no print info is given (print_info == NULL), we print with default settings
++  void print_report(outputStream* st, const print_info_t* print_info = NULL);
++
++  // These are counters for the statistics history. Ideally, they would live
++  // inside their thematical homes, e.g. thread.cpp or classLoaderDataGraph.cpp,
++  // however since this is unlikely ever to be brought upstream we keep this separate
++  // to easy maintenance.
++
++  namespace counters {
++    void inc_classes_loaded(size_t count);
++    void inc_classes_unloaded(size_t count);
++    void inc_threads_created(size_t count);
++  };
++
 +};
 +
 +#endif /* HOTSPOT_SHARE_SERVICES_STATHIST_HPP */
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.cpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/stathistDCmd.cpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/share/services/stathistDCmd.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,96 @@
++++ b/src/hotspot/share/services/stathistDCmd.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,95 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -2065,20 +2189,19 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.cpp
 +  DEBUG_ONLY(pi.raw = _raw.value();)
 +  pi.cvs = _cvs.value();
 +  pi.no_legend = _no_legend.value();
-+  pi.no_now_value = false;
++  pi.avoid_sampling = false;
 +
 +  StatisticsHistory::print_report(output(), &pi);
 +}
 +
 +}; // namespace StatisticsHistory
-+
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.hpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/stathistDCmd.hpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/share/services/stathistDCmd.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,66 @@
++++ b/src/hotspot/share/services/stathistDCmd.hpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,65 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -2102,12 +2225,11 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.hpp
 + *
 + */
 +
++
 +#ifndef HOTSPOT_SHARE_SERVICES_STATHIST_INTERNALS_HPP
 +#define HOTSPOT_SHARE_SERVICES_STATHIST_INTERNALS_HPP
 +
-+
 +#include "services/diagnosticCommand.hpp"
-+
 +
 +namespace StatisticsHistory {
 +
@@ -2122,10 +2244,10 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.hpp
 +public:
 +  StatHistDCmd(outputStream* output, bool heap);
 +  static const char* name() {
-+    return "VM.stathist";
++    return "VM.vitals";
 +  }
 +  static const char* description() {
-+    return "Provide statistics history.";
++    return "Print Vitals.";
 +  }
 +  static const char* impact() {
 +    return "Low.";
@@ -2142,13 +2264,13 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathistDCmd.hpp
 +}; // namespace StatisticsHistory
 +
 +#endif /* HOTSPOT_SHARE_SERVICES_STATHIST_INTERNALS_HPP */
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist_internals.hpp
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/services/stathist_internals.hpp
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/hotspot/share/services/stathist_internals.hpp	Fri Sep 07 07:52:35 2018 +0200
++++ b/src/hotspot/share/services/stathist_internals.hpp	Fri Mar 01 13:59:26 2019 +0100
 @@ -0,0 +1,181 @@
 +/*
-+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE.
++ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE.
 + *
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
@@ -2322,98 +2444,84 @@ diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/services/stathist_interna
 +  bool platform_columns_initialize();
 +
 +  void sample_platform_values(record_t* record);
-+  void sample_jvm_values(record_t* record);
++  void sample_jvm_values(record_t* record, bool avoid_locking);
 +
 +}; // namespace StatisticsHistory
 +
 +#endif /* HOTSPOT_SHARE_SERVICES_STATHIST_INTERNALS_HPP */
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/utilities/ostream.cpp
---- a/src/hotspot/share/utilities/ostream.cpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/utilities/ostream.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -183,6 +183,12 @@
-   write(buf, 1);
- }
- 
-+void outputStream::put(char ch, int repeat_count) {
-+  for (int i = 0; i < repeat_count; i ++) {
-+    put(ch);
-+  }
-+}
-+
- #define SP_USE_TABS false
- 
- void outputStream::sp(int count) {
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/utilities/ostream.hpp
---- a/src/hotspot/share/utilities/ostream.hpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/utilities/ostream.hpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -100,6 +100,7 @@
-    void print_raw_cr(const char* str, int len){ write(str,         len); cr(); }
-    void print_data(void* data, size_t len, bool with_ascii);
-    void put(char ch);
-+   void put(char ch, int repeat_count);
-    void sp(int count = 1);
-    void cr();
-    void cr_indent();
-diff -r b7192ab3fdf5 -r 08dedf735951 src/hotspot/share/utilities/vmError.cpp
---- a/src/hotspot/share/utilities/vmError.cpp	Mon Nov 19 19:25:57 2018 +0100
-+++ b/src/hotspot/share/utilities/vmError.cpp	Fri Sep 07 07:52:35 2018 +0200
-@@ -44,6 +44,7 @@
+diff -r 1262b3ddd7e4 -r 11cb98441f2e src/hotspot/share/utilities/vmError.cpp
+--- a/src/hotspot/share/utilities/vmError.cpp	Sat Aug 31 09:18:40 2019 -0700
++++ b/src/hotspot/share/utilities/vmError.cpp	Fri Mar 01 13:59:26 2019 +0100
+@@ -45,6 +45,8 @@
+ #include "runtime/vmOperations.hpp"
  #include "runtime/vm_version.hpp"
  #include "runtime/flags/jvmFlag.hpp"
- #include "services/memTracker.hpp"
++// SapMachine 2019-02-20 : stathist
 +#include "services/stathist.hpp"
+ #include "services/memTracker.hpp"
  #include "utilities/debug.hpp"
  #include "utilities/decoder.hpp"
- #include "utilities/defaultStream.hpp"
-@@ -101,6 +102,17 @@
-   (const char *)0
- };
- 
-+// When printing the statistics history as part of VM.info or a crash log,
-+// omit the legend since it is lengthy. We also omit taking the now values, since
-+// we want to minimize the chance for secondary errors.
-+static const StatisticsHistory::print_info_t g_stathist_printsettings = {
-+  false, false,
-+  true, // omit legend
-+  true, // omit now error reporting
-+  0
-+};
-+
-+
- // A simple parser for -XX:OnError, usage:
- //  ptr = OnError;
- //  while ((cmd = next_OnError_command(buffer, sizeof(buffer), &ptr) != NULL)
-@@ -984,6 +996,11 @@
+@@ -1002,6 +1004,16 @@
         MemTracker::error_report(st);
       }
  
-+  STEP("Statistics History")
++  // SapMachine 2019-02-20 : stathist
++  STEP("Vitals")
 +     if (_verbose) {
-+       StatisticsHistory::print_report(st, &g_stathist_printsettings);
++       static const StatisticsHistory::print_info_t settings = {
++           false, false, false, // omit_legend
++           true   // avoid_sampling to be safe
++       };
++       StatisticsHistory::print_report(st, &settings);
 +     }
 +
    STEP("printing system")
  
       if (_verbose) {
-@@ -1152,8 +1169,10 @@
-   st->cr();
+@@ -1173,6 +1185,10 @@
  
-   // STEP("Native Memory Tracking")
-+  MemTracker::error_report(st);
+   MemTracker::error_report(st);
  
--  MemTracker::error_report(st);
-+  // STEP("Statistics History")
-+  StatisticsHistory::print_report(st, &g_stathist_printsettings);
- 
++  // SapMachine 2019-02-20 : stathist
++  // STEP("Vitals")
++  StatisticsHistory::print_report(st, NULL);
++
    // STEP("printing system")
  
-diff -r b7192ab3fdf5 -r 08dedf735951 test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java
+   st->cr();
+diff -r 1262b3ddd7e4 -r 11cb98441f2e test/hotspot/jtreg/TEST.groups
+--- a/test/hotspot/jtreg/TEST.groups	Sat Aug 31 09:18:40 2019 -0700
++++ b/test/hotspot/jtreg/TEST.groups	Fri Mar 01 13:59:26 2019 +0100
+@@ -311,6 +311,11 @@
+  -:tier1_runtime_appcds_exclude \
+  -runtime/signal
+ 
++# SapMachine 2019-02-24 : Add tests where SAPMachine has different behavior to tier1,
++#  or which tests downstream-only features.
++tier1_sapmachine = \
++  serviceability/dcmd/vm/StatHistTest.java
++
+ hotspot_cds = \
+   runtime/cds/ \
+   runtime/CompressedOops/
+@@ -374,7 +379,10 @@
+   -serviceability/sa/TestJmapCore.java \
+   -serviceability/sa/TestJmapCoreMetaspace.java
+ 
++# SapMachine 2019-02-24 : Add tests where SAPMachine has different behavior to tier1,
++#  or which tests downstream-only features.
+ tier1 = \
++  :tier1_sapmachine \
+   :tier1_common \
+   :tier1_compiler \
+   :tier1_gc \
+diff -r 1262b3ddd7e4 -r 11cb98441f2e test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java	Fri Sep 07 07:52:35 2018 +0200
-@@ -0,0 +1,60 @@
++++ b/test/hotspot/jtreg/serviceability/dcmd/vm/StatHistTest.java	Fri Mar 01 13:59:26 2019 +0100
+@@ -0,0 +1,59 @@
 +/*
-+ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
-+ * Copyright (c) 2018, SAP SE. All rights reserved.
++ * Copyright (c) 2014, 2019, Oracle and/or its affiliates. All rights reserved.
++ * Copyright (c) 2019, SAP SE. All rights reserved.
 + * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 + *
 + * This code is free software; you can redistribute it and/or modify it
@@ -2456,11 +2564,11 @@ diff -r b7192ab3fdf5 -r 08dedf735951 test/hotspot/jtreg/serviceability/dcmd/vm/S
 +public class StatHistTest {
 +
 +    public void run(CommandExecutor executor) {
-+        OutputAnalyzer output = executor.execute("VM.stathist");
++        OutputAnalyzer output = executor.execute("VM.vitals");
 +        output.shouldContain("--jvm--");
 +        output.shouldContain("--heap--");
 +        output.shouldContain("--meta--");
-+        output = executor.execute("VM.stathist cvs");
++        output = executor.execute("VM.vitals cvs");
 +        output.shouldContain("heap-comm,heap-used,meta-comm,meta-used");
 +    }
 +
@@ -2470,4 +2578,3 @@ diff -r b7192ab3fdf5 -r 08dedf735951 test/hotspot/jtreg/serviceability/dcmd/vm/S
 +    }
 +
 +}
-+

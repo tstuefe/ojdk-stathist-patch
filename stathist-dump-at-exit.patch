@@ -1,0 +1,50 @@
+# HG changeset patch
+# User stuefe
+# Date 1567695784 -7200
+#      Thu Sep 05 17:03:04 2019 +0200
+# Node ID 77868fbbff3e2e214532fdff6f0726d6726bcac8
+# Parent  11cb98441f2e31bfef3c95a212f78958ec851fdd
+[mq]: dump-vitals-on-exit
+
+diff -r 11cb98441f2e -r 77868fbbff3e src/hotspot/share/runtime/globals.hpp
+--- a/src/hotspot/share/runtime/globals.hpp	Fri Mar 01 13:59:26 2019 +0100
++++ b/src/hotspot/share/runtime/globals.hpp	Thu Sep 05 17:03:04 2019 +0200
+@@ -509,6 +509,10 @@
+   product(uintx, VitalsSampleInterval, 0,                                   \
+           "Vitals sample rate interval (0=use default sample rate)")        \
+                                                                             \
++  product(bool, DumpVitalsAtExit, false,                                    \
++		      "Dump vitals at VM exit to vitals_<pid>.txt and "                 \
++		      "vitals_<pid>.cvs.")                                              \
++		                                                                        \
+   experimental(bool, VitalsLockFreeSampling, false,                         \
+           "When sampling vitals, omit any actions which require locking.")  \
+                                                                             \
+diff -r 11cb98441f2e -r 77868fbbff3e src/hotspot/share/runtime/java.cpp
+--- a/src/hotspot/share/runtime/java.cpp	Fri Mar 01 13:59:26 2019 +0100
++++ b/src/hotspot/share/runtime/java.cpp	Thu Sep 05 17:03:04 2019 +0200
+@@ -72,6 +72,7 @@
+ #include "runtime/timer.hpp"
+ #include "runtime/vmOperations.hpp"
+ #include "services/memTracker.hpp"
++#include "services/stathist.hpp"
+ #include "utilities/dtrace.hpp"
+ #include "utilities/globalDefinitions.hpp"
+ #include "utilities/histogram.hpp"
+@@ -347,6 +348,16 @@
+     MemTracker::final_report(tty);
+   }
+ 
++  if (DumpVitalsAtExit) {
++    StatisticsHistory::print_info_t pi;
++    memset(&pi, 0, sizeof(pi));
++    fileStream fs("vitals.txt");
++    StatisticsHistory::print_report(&fs, &pi);
++    fileStream fs2("vitals.cvs");
++    pi.cvs = true;
++    StatisticsHistory::print_report(&fs2, &pi);
++  }
++
+   ThreadsSMRSupport::log_statistics();
+ }
+ 
